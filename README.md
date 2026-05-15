@@ -210,4 +210,6 @@ The original prototype used a Python/Streamlit backend (`streamlit_app.py`) with
 
 ## Licence
 
-GNU General Public License v3.0 — see [LICENSE](LICENSE) for details.
+[MIT + Common Clause](LICENSE) — Copyright (c) 2025 Kyndryl.
+
+Free to use, modify, and distribute. You may **not** sell this software or offer it as a paid product or service. See [LICENSE](LICENSE) for full terms.
