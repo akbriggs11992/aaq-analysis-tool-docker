@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
 import logo from "./assets/kyndryl_logo.webp";
+import Worker from "./workers/aaqWorker.js?worker";
 
 // ─── Palette & Theme ───────────────────────────────────────────────────────
 const CSS = `
@@ -24,7 +25,7 @@ const CSS = `
     --low: #00e5ff;
     --vlow: #3a4155;
     --font-head: 'Inter', sans-serif;
-    --font-mono: 'Inter', sans-serif
+    --font-mono: 'Inter', sans-serif;
     --radius: 8px;
     --transition: 180ms cubic-bezier(.4,0,.2,1);
   }
@@ -101,6 +102,9 @@ const CSS = `
     position: relative; overflow: hidden;
     box-shadow: 0 0 60px rgba(0,229,255,0.04);
   }
+    
+{loading && <div style={{color:"var(--muted)", marginTop: 12}}>Processing… large files may take a moment.</div>}
+{error && <div style={{color:"var(--accent2)", marginTop: 12}}>Error: {error}</div>}
 
   .upload-zone::before {
     content:''; position:absolute; inset:0;
@@ -905,19 +909,45 @@ export default function App() {
   const [drag, setDrag] = useState(false);
   const fileRef = useRef();
 
-  const handleFile = useCallback(file => {
-    if (!file) return;
-    setFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = e => {
-      const data = new Uint8Array(e.target.result);
-      const wb = XLSX.read(data, { type: "array" });
-      const parsed = parseAAQ(wb);
-      setResult(parsed);
-      setNav("home");
+  
+const [loading, setLoading] = useState(false);
+const [error, setError] = useState(null);
+
+const handleFile = useCallback((file) => {
+  if (!file) return;
+  setFileName(file.name);
+  setLoading(true);
+  setError(null);
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    const buffer = reader.result;
+
+    const worker = new Worker();
+    worker.onmessage = (evt) => {
+      const { ok, result, error } = evt.data;
+      if (ok) {
+        setResult(result);
+        setNav("home");
+      } else {
+        setError(error);
+      }
+      setLoading(false);
+      worker.terminate();
     };
-    reader.readAsArrayBuffer(file);
-  }, []);
+
+    // Transfer the ArrayBuffer (fast, avoids copying)
+    worker.postMessage({ buffer }, [buffer]);
+  };
+
+  reader.onerror = () => {
+    setError("Failed to read file.");
+    setLoading(false);
+  };
+
+  reader.readAsArrayBuffer(file);
+}, []);
+
 
   const onDrop = useCallback(e => {
     e.preventDefault();
